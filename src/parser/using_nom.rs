@@ -4,14 +4,17 @@ use nom::{
     bytes::complete::{tag, take_while1},
     character::complete::{digit0, digit1, line_ending, space0, space1},
     combinator::{map, map_res, opt},
+    error::Error,
     multi::{many0, many1},
     number::complete::float,
-    sequence::{delimited, preceded, separated_pair, terminated, tuple},
-    IResult,
+    sequence::{delimited, preceded, separated_pair, terminated},
+    IResult, Parser,
 };
 use serde::{Deserialize, Serialize};
 
-fn parse_field<'a>(key: &'static str) -> impl FnMut(&'a str) -> IResult<&'a str, f32> {
+fn parse_field<'a>(
+    key: &'static str,
+) -> impl Parser<&'a str, Output = f32, Error = Error<&'a str>> {
     terminated(
         delimited(space0, float, space0),
         terminated(tag(key), opt(tag(","))),
@@ -29,14 +32,15 @@ struct TaskStates {
 }
 
 fn parse_task_states(input: &str) -> IResult<&str, TaskStates> {
-    let (input, task_states) = tuple((
+    let (input, task_states) = (
         tag("Tasks:"),
         parse_field("total"),
         parse_field("running"),
         parse_field("sleeping"),
         parse_field("stopped"),
         parse_field("zombie"),
-    ))(input)?;
+    )
+        .parse(input)?;
 
     Ok((
         input,
@@ -68,14 +72,15 @@ fn parse_cpu_id(input: &str) -> IResult<&str, i32> {
     alt((
         map(tag("%Cpu(s):"), |_| -1),
         map_res(
-            preceded(tag("%Cpu"), terminated(digit0, tuple((space0, tag(":"))))),
+            preceded(tag("%Cpu"), terminated(digit0, (space0, tag(":")))),
             str::parse::<i32>,
         ),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn parse_cpu_states(input: &str) -> IResult<&str, CpuStates> {
-    let (input, cpus) = tuple((
+    let (input, cpus) = (
         parse_cpu_id,
         parse_field("us"),
         parse_field("sy"),
@@ -85,7 +90,7 @@ fn parse_cpu_states(input: &str) -> IResult<&str, CpuStates> {
         parse_field("hi"),
         parse_field("si"),
         parse_field("st"),
-    ))(input)?;
+    ).parse(input)?;
 
     Ok((
         input,
@@ -113,13 +118,13 @@ struct PhysicalMemory {
 }
 
 fn parse_physical_memory(input: &str) -> IResult<&str, PhysicalMemory> {
-    let (input, physical_memory) = tuple((
+    let (input, physical_memory) = (
         tag("MiB Mem :"),
         parse_field("total"),
         parse_field("free"),
         parse_field("used"),
         parse_field("buff/cache"),
-    ))(input)?;
+    ).parse(input)?;
 
     Ok((
         input,
@@ -142,13 +147,13 @@ struct VirtualMemory {
 }
 
 fn parse_virtual_memory(input: &str) -> IResult<&str, VirtualMemory> {
-    let (input, virtual_memory) = tuple((
+    let (input, virtual_memory) = (
         tag("MiB Swap:"),
         parse_field("total"),
         parse_field("free"),
         parse_field("used."),
         parse_field("avail Mem"),
-    ))(input)?;
+    ).parse(input)?;
 
     Ok((
         input,
@@ -173,13 +178,13 @@ struct SummaryDisplay {
 
 fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
     map(
-        tuple((
+        (
             terminated(parse_up_time_and_load_average, line_ending),
             terminated(parse_task_states, line_ending),
             many1(terminated(parse_cpu_states, line_ending)),
             terminated(parse_physical_memory, line_ending),
             terminated(parse_virtual_memory, line_ending),
-        )),
+        ),
         |output| SummaryDisplay {
             up_time_and_load_average: output.0,
             task_states: output.1,
@@ -187,7 +192,8 @@ fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
             physical_memory: output.3,
             virtual_memory: output.4,
         },
-    )(input)
+    )
+    .parse(input)
 }
 
 #[derive(Debug)]
@@ -214,7 +220,7 @@ impl UpTimeDuration {
 }
 
 fn parse_up_time_mins(input: &str) -> IResult<&str, u32> {
-    delimited(space0, map_res(digit0, str::parse::<u32>), tag(" min,"))(input)
+    delimited(space0, map_res(digit0, str::parse::<u32>), tag(" min,")).parse(input)
 }
 
 fn parse_up_time_hours_mins(input: &str) -> IResult<&str, (u32, u32)> {
@@ -226,7 +232,8 @@ fn parse_up_time_hours_mins(input: &str) -> IResult<&str, (u32, u32)> {
             map_res(digit0, str::parse::<u32>),
         ),
         tag(","),
-    )(input)
+    )
+    .parse(input)
 }
 
 fn parse_up_time_days(input: &str) -> IResult<&str, u32> {
@@ -234,11 +241,12 @@ fn parse_up_time_days(input: &str) -> IResult<&str, u32> {
         space0,
         map_res(digit0, str::parse::<u32>),
         alt((tag(" day,"), tag(" days,"))),
-    )(input)
+    )
+    .parse(input)
 }
 
 fn parse_up_time(input: &str) -> IResult<&str, u32> {
-    let (input, _) = preceded(space0, tag("up"))(input)?;
+    let (input, _) = preceded(space0, tag("up")).parse(input)?;
 
     map(
         alt((
@@ -247,16 +255,17 @@ fn parse_up_time(input: &str) -> IResult<&str, u32> {
                 UpTimeDuration::HoursMinutes(hours, mins)
             }),
             map(
-                tuple((parse_up_time_days, parse_up_time_hours_mins)),
+                (parse_up_time_days, parse_up_time_hours_mins),
                 |(days, (hours, mins))| UpTimeDuration::DaysHoursMinutes(days, hours, mins),
             ),
             map(
-                tuple((parse_up_time_days, parse_up_time_mins)),
+                (parse_up_time_days, parse_up_time_mins),
                 |(days, mins)| UpTimeDuration::DaysMinutes(days, mins),
             ),
         )),
         |up_time_duration: UpTimeDuration| up_time_duration.to_seconds(),
-    )(input)
+    )
+    .parse(input)
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -279,12 +288,13 @@ impl LoadAverage {
 }
 
 fn parse_load_average(input: &str) -> IResult<&str, LoadAverage> {
-    let (input, _) = preceded(space0, tag("load average:"))(input)?;
+    let (input, _) = preceded(space0, tag("load average:")).parse(input)?;
 
     map(
         many1(preceded(space0, terminated(float, opt(tag(","))))),
         LoadAverage::from_vec,
-    )(input)
+    )
+    .parse(input)
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -301,23 +311,24 @@ fn parse_up_time_and_load_average(input: &str) -> IResult<&str, UpTimeAndLoadAve
     let (input, _) = tag("top -")(input)?;
 
     map(
-        tuple((
+        (
             parse_hh_mm_ss,
             parse_up_time,
             alt((parse_field("users"), parse_field("user"))),
             parse_load_average,
-        )),
+        ),
         |output| UpTimeAndLoadAverage {
             time: output.0.join(":"),
             up_time_s: output.1,
             total_number_of_users: output.2 as u32,
             load_average: output.3,
         },
-    )(input)
+    )
+    .parse(input)
 }
 
 fn parse_hh_mm_ss(input: &str) -> IResult<&str, Vec<&str>> {
-    preceded(space0, many1(terminated(digit1, opt(tag(":")))))(input)
+    preceded(space0, many1(terminated(digit1, opt(tag(":"))))).parse(input)
 }
 //  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                                                                                                                                                                                                                                                                                                                                                                                                  P
 // 8253 tim       20   0   23.8g 235884  37740 S   6.7   2.9   0:03.07 /home/tim/.nvm/versions/node/v18.12.0/bin/node --experimental-loader=file:///home/tim/.vscode-server/extensions/wallabyjs.wallaby-vscode-1.0.349/wallaby65f4bb/runners/node/hooks.mjs /home/tim/.vscode-server/extensions/wallabyjs.wallaby-vscode-1.0.349/wallaby65f4bb/server.js runner 0 40475 vitest@0.14.0,autoDetected  /home/tim/learn/linux-top-parser/node_modules /home/tim/.vscode-server/extensions/wallabyjs.wallaby-vscode-1.0.349/proje+  2
@@ -361,21 +372,23 @@ fn word_boundary_parser(input: &str) -> IResult<&str, &str> {
         opt(preceded(take_while1(|c: char| !c.is_whitespace()), space1)),
         take_while1(|c: char| !c.is_whitespace()),
         opt(space1),
-    )(input)
+    )
+    .parse(input)
 }
 
 fn multi_word_parser(input: &str) -> IResult<&str, Vec<&str>> {
-    many0(word_boundary_parser)(input)
+    many0(word_boundary_parser).parse(input)
 }
 
 fn leading_whitespace_word_parser(input: &str) -> IResult<&str, &str> {
-    preceded(space1, take_while1(|c: char| !c.is_whitespace()))(input)
+    preceded(space1, take_while1(|c: char| !c.is_whitespace())).parse(input)
 }
 
 #[test]
 fn it_can_parse_header() {
     let input =
         " USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND              P";
+
     let expected = vec![
         "  PID",
         " USER     ",
@@ -479,7 +492,7 @@ mod tests {
     #[case("   1 running,", "running", 1)]
     #[case("   0 stopped,", "stopped", 0)]
     fn it_can_parse_field(#[case] input: &str, #[case] key: &'static str, #[case] expected: u32) {
-        let (_, actual) = parse_field(key)(input).unwrap();
+        let (_, actual) = parse_field(key).parse(input).unwrap();
         assert_eq!(actual as u32, expected);
     }
 
