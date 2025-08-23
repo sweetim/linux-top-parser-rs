@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use super::common::{from_days, from_hours, from_minutes};
 use nom::{
@@ -9,7 +9,7 @@ use nom::{
     },
     combinator::{map, map_res, opt, peek},
     error::Error,
-    multi::{many1, many_till, separated_list1},
+    multi::{many0, many1, many_till, separated_list1},
     number::complete::float,
     sequence::{delimited, preceded, separated_pair, terminated},
     IResult, Parser,
@@ -185,7 +185,7 @@ fn parse_virtual_memory(input: &str) -> IResult<&str, VirtualMemory> {
 #[serde(rename_all = "camelCase")]
 struct TopInfo {
     summary_display: SummaryDisplay,
-    field_values: Vec<HashMap<String, String>>,
+    field_values: Vec<IndexMap<String, String>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -420,7 +420,7 @@ struct ColumnsHeader {
     end: usize,
 }
 
-fn parse_field_values(header: &Vec<String>, body: &Vec<String>) -> Vec<HashMap<String, String>> {
+fn parse_field_values(header: &Vec<String>, body: &Vec<String>) -> Vec<IndexMap<String, String>> {
     let header_start_end = header
         .iter()
         .enumerate()
@@ -450,7 +450,7 @@ fn parse_field_values(header: &Vec<String>, body: &Vec<String>) -> Vec<HashMap<S
                     let value = line[h.start..h.end].trim().to_string();
                     (key, value)
                 })
-                .collect()
+                .collect::<IndexMap<_, _>>()
         })
         .collect()
 }
@@ -764,7 +764,7 @@ MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   3392.8 avail Mem
     }
 
     #[rstest]
-    fn it_can_parse_summary_display(#[values("single_all_cpu")] file_name: &str) {
+    fn it_can_parse_summary_display(#[values("single_all_cpu", "multi")] file_name: &str) {
         let folder_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
 
         let input_file_path = folder_path.join(format!("{}.txt", file_name));
@@ -774,8 +774,8 @@ MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   3392.8 avail Mem
         let expected = std::fs::read_to_string(expected_file_path).unwrap();
 
         let expected = serde_json::from_str::<Vec<TopInfo>>(expected.as_str()).unwrap();
-        let actual = parse_top_info_block(input.as_str()).unwrap().1;
+        let actual = parse_multiple_top_info_blocks(input.as_str()).unwrap().1;
         println!("{:#?}", actual);
-        assert_eq!(vec![actual], expected);
+        assert_eq!(actual, expected);
     }
 }
