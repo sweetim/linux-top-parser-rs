@@ -1,0 +1,11 @@
+# DeepSource configuration for this Rust repository
+version = 1
+
+[[analyzers]]
+name = "rust"
+
+[analyzers.meta]
+msrv = "stable"
+
+[[transformers]]
+name = "rustfmt"
