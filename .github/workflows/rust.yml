@@ -4,6 +4,7 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,6 +13,7 @@ jobs:
         rust: [stable]
     steps:
       - uses: actions/checkout@v4
+
       - name: Cache cargo registry and target
         uses: actions/cache@v4
         with:
@@ -22,15 +24,31 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
           profile: minimal
           override: true
+          components: llvm-tools-preview
+
       - name: Check formatting
         run: cargo fmt --all -- --check
+
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
-      - name: Run tests
-        run: cargo test --all-features --verbose
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+
+      - name: Run tests with coverage
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+
+      - name: Upload coverage to DeepSource
+        if: success()
+        run: |
+          curl https://deepsource.io/cli | sh
+          ./bin/deepsource report --analyzer test-coverage --key rust --value-file ./lcov.info
+        env:
+          DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}

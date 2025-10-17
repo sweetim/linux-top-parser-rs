@@ -7,8 +7,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let path = args
         .get(1)
-        .map(|s| s.as_str())
-        .unwrap_or("data/single_all_cpu.txt");
+        .map_or("data/single_all_cpu.txt", |s| s.as_str());
 
     let input = match fs::read_to_string(path) {
         Ok(s) => s,
