@@ -3,8 +3,20 @@ version = 1
 [[analyzers]]
 name = "rust"
 
-  [analyzers.meta]
-  msrv = "stable"
+[analyzers.meta]
+msrv = "stable"
+
+# Analyzer to surface test coverage reports (lcov)
+[[analyzers]]
+name = "test-coverage"
+
+[analyzers.meta]
+# The format of the coverage report produced by the CI (we use lcov)
+formats = ["lcov"]
+# The expected path to the coverage file produced by the workflow
+report_file = "lcov.info"
+# language key to associate the report with the Rust analyzer
+language = "rust"
 
 [[transformers]]
 name = "rustfmt"
