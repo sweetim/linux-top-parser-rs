@@ -1,13 +1,13 @@
 pub fn from_days(days: u32) -> u32 {
-    return from_hours(days * 24);
+    from_hours(days * 24)
 }
 
 pub fn from_hours(hours: u32) -> u32 {
-    return from_minutes(hours * 60);
+    from_minutes(hours * 60)
 }
 
 pub fn from_minutes(minutes: u32) -> u32 {
-    return minutes * 60;
+    minutes * 60
 }
 
 #[cfg(test)]

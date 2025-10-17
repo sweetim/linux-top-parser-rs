@@ -2,7 +2,7 @@
     {
         "summaryDisplay": {
             "upTimeAndLoadAverage": {
-                "time": "2023-03-01T20:51:36.000Z",
+                "time": "20:51:36",
                 "upTime_s": 4200,
                 "totalNumberOfUsers": 0,
                 "loadAverageLast_1_min": 0.05,
@@ -2628,7 +2628,7 @@
     {
         "summaryDisplay": {
             "upTimeAndLoadAverage": {
-                "time": "2023-03-01T20:51:39.000Z",
+                "time": "20:51:39",
                 "upTime_s": 4200,
                 "totalNumberOfUsers": 0,
                 "loadAverageLast_1_min": 0.05,

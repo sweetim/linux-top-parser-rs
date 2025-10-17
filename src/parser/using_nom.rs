@@ -27,12 +27,12 @@ fn parse_field<'a>(
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TaskStates {
-    total: u32,
-    running: u32,
-    sleeping: u32,
-    stopped: u32,
-    zombie: u32,
+pub struct TaskStates {
+    pub total: u32,
+    pub running: u32,
+    pub sleeping: u32,
+    pub stopped: u32,
+    pub zombie: u32,
 }
 
 fn parse_task_states(input: &str) -> IResult<&str, TaskStates> {
@@ -59,25 +59,25 @@ fn parse_task_states(input: &str) -> IResult<&str, TaskStates> {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct CpuStates {
+pub struct CpuStates {
     #[serde(rename = "cpu")]
-    id: i32,
+    pub id: i32,
     #[serde(rename = "us")]
-    user: f32,
+    pub user: f32,
     #[serde(rename = "sy")]
-    system: f32,
+    pub system: f32,
     #[serde(rename = "ni")]
-    nice: f32,
+    pub nice: f32,
     #[serde(rename = "id")]
-    idle: f32,
+    pub idle: f32,
     #[serde(rename = "wa")]
-    io_wait: f32,
+    pub io_wait: f32,
     #[serde(rename = "hi")]
-    hw_irq: f32,
+    pub hw_irq: f32,
     #[serde(rename = "si")]
-    soft_irq: f32,
+    pub soft_irq: f32,
     #[serde(rename = "st")]
-    steal: f32,
+    pub steal: f32,
 }
 
 fn parse_cpu_id(input: &str) -> IResult<&str, i32> {
@@ -123,11 +123,11 @@ fn parse_cpu_states(input: &str) -> IResult<&str, CpuStates> {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct PhysicalMemory {
-    total: f32,
-    free: f32,
-    used: f32,
-    buff_or_cache: f32,
+pub struct PhysicalMemory {
+    pub total: f32,
+    pub free: f32,
+    pub used: f32,
+    pub buff_or_cache: f32,
 }
 
 fn parse_physical_memory(input: &str) -> IResult<&str, PhysicalMemory> {
@@ -153,11 +153,11 @@ fn parse_physical_memory(input: &str) -> IResult<&str, PhysicalMemory> {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct VirtualMemory {
-    total: f32,
-    free: f32,
-    used: f32,
-    available: f32,
+pub struct VirtualMemory {
+    pub total: f32,
+    pub free: f32,
+    pub used: f32,
+    pub available: f32,
 }
 
 fn parse_virtual_memory(input: &str) -> IResult<&str, VirtualMemory> {
@@ -183,19 +183,19 @@ fn parse_virtual_memory(input: &str) -> IResult<&str, VirtualMemory> {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TopInfo {
-    summary_display: SummaryDisplay,
-    field_values: Vec<IndexMap<String, String>>,
+pub struct TopInfo {
+    pub summary_display: SummaryDisplay,
+    pub field_values: Vec<IndexMap<String, String>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SummaryDisplay {
-    up_time_and_load_average: UpTimeAndLoadAverage,
-    task_states: TaskStates,
-    cpu_states: Vec<CpuStates>,
-    physical_memory: PhysicalMemory,
-    virtual_memory: VirtualMemory,
+pub struct SummaryDisplay {
+    pub up_time_and_load_average: UpTimeAndLoadAverage,
+    pub task_states: TaskStates,
+    pub cpu_states: Vec<CpuStates>,
+    pub physical_memory: PhysicalMemory,
+    pub virtual_memory: VirtualMemory,
 }
 
 fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
@@ -222,7 +222,6 @@ fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
 enum UpTimeDuration {
     Minutes(u32),
     HoursMinutes(u32, u32),
-    Days(u32),
     DaysMinutes(u32, u32),
     DaysHoursMinutes(u32, u32, u32),
 }
@@ -231,7 +230,6 @@ impl UpTimeDuration {
     fn to_seconds(&self) -> u32 {
         match *self {
             UpTimeDuration::Minutes(mins) => from_minutes(mins),
-            UpTimeDuration::Days(days) => from_days(days),
             UpTimeDuration::HoursMinutes(hours, mins) => from_hours(hours) + from_minutes(mins),
             UpTimeDuration::DaysMinutes(days, mins) => from_days(days) + from_minutes(mins),
             UpTimeDuration::DaysHoursMinutes(days, hours, mins) => {
@@ -272,7 +270,7 @@ fn parse_up_time(input: &str) -> IResult<&str, u32> {
 
     map(
         alt((
-            map(parse_up_time_mins, |mins| UpTimeDuration::Minutes(mins)),
+            map(parse_up_time_mins, UpTimeDuration::Minutes),
             map(parse_up_time_hours_mins, |(hours, mins)| {
                 UpTimeDuration::HoursMinutes(hours, mins)
             }),
@@ -290,13 +288,13 @@ fn parse_up_time(input: &str) -> IResult<&str, u32> {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct LoadAverage {
+pub struct LoadAverage {
     #[serde(rename = "loadAverageLast_1_min")]
-    last_1_min: f32,
+    pub last_1_min: f32,
     #[serde(rename = "loadAverageLast_5_min")]
-    last_5_min: f32,
+    pub last_5_min: f32,
     #[serde(rename = "loadAverageLast_15_min")]
-    last_15_min: f32,
+    pub last_15_min: f32,
 }
 
 impl LoadAverage {
@@ -323,13 +321,13 @@ fn parse_load_average(input: &str) -> IResult<&str, LoadAverage> {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct UpTimeAndLoadAverage {
-    time: String,
+pub struct UpTimeAndLoadAverage {
+    pub time: String,
     #[serde(rename = "upTime_s")]
-    up_time_s: u32,
-    total_number_of_users: u32,
+    pub up_time_s: u32,
+    pub total_number_of_users: u32,
     #[serde(flatten)]
-    load_average: LoadAverage,
+    pub load_average: LoadAverage,
 }
 
 fn parse_up_time_and_load_average(input: &str) -> IResult<&str, UpTimeAndLoadAverage> {
@@ -389,11 +387,17 @@ fn parse_columns_header(input: &str) -> IResult<&str, Vec<String>> {
     .parse(input)
 }
 
-#[derive(Debug, PartialEq)]
-struct TopInfoDisplayType {
-    summary: SummaryDisplay,
-    header: Vec<String>,
-    body: Vec<String>,
+fn not_empty_line(input: &str) -> IResult<&str, &str> {
+    let (rest, line) = not_line_ending(input)?;
+
+    if line.trim().is_empty() {
+        Err(nom::Err::Error(Error::new(
+            rest,
+            nom::error::ErrorKind::Fail,
+        )))
+    } else {
+        Ok((rest, line))
+    }
 }
 
 fn parse_top_info_block(input: &str) -> IResult<&str, TopInfo> {
@@ -402,14 +406,39 @@ fn parse_top_info_block(input: &str) -> IResult<&str, TopInfo> {
             parse_summary_display,
             many1(line_ending),
             terminated(parse_columns_header, line_ending),
-            separated_list1(alt((line_ending, crlf)), not_line_ending),
+            separated_list1(alt((line_ending, crlf)), not_empty_line),
         ),
-        |a| TopInfo {
-            summary_display: a.0,
-            field_values: parse_field_values(&a.2, &a.3.iter().map(|s| s.to_string()).collect()),
+        |a| {
+            // Build a body vector that only includes actual process lines (not blank lines or
+            // subsequent "top - ..." summaries). This prevents out-of-bounds slicing when the
+            // header spans positions that don't exist on non-process lines.
+            let body: Vec<String> =
+                a.3.iter()
+                    .map(|s| s.to_string())
+                    // .filter(|s| {
+                    //     let t = s.trim();
+                    //     if t.is_empty() {
+                    //         return false;
+                    //     }
+                    //     // Keep lines that start with a digit after trimming left (PID lines).
+                    //     t.chars()
+                    //         .next()
+                    //         .map(|c| c.is_ascii_digit())
+                    //         .unwrap_or(false)
+                    // })
+                    .collect();
+
+            TopInfo {
+                summary_display: a.0,
+                field_values: parse_field_values(&a.2, &body),
+            }
         },
     )
     .parse(input)
+}
+
+pub fn parse_multiple_top_info_blocks(input: &str) -> IResult<&str, Vec<TopInfo>> {
+    many1(terminated(parse_top_info_block, many0(line_ending))).parse(input)
 }
 
 #[derive(Debug, PartialEq)]
