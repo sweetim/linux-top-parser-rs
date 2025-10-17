@@ -449,7 +449,7 @@ struct ColumnsHeader {
     end: usize,
 }
 
-fn parse_field_values(header: &Vec<String>, body: &Vec<String>) -> Vec<IndexMap<String, String>> {
+fn parse_field_values(header: &[String], body: &[String]) -> Vec<IndexMap<String, String>> {
     let header_start_end = header
         .iter()
         .enumerate()
