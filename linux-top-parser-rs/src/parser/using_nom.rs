@@ -872,7 +872,10 @@ MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   3392.8 avail Mem
 
     #[rstest]
     fn it_can_parse_summary_display(#[values("single_all_cpu", "multi")] file_name: &str) {
-        let folder_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
+        let folder_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("data");
 
         let input_file_path = folder_path.join(format!("{}.txt", file_name));
         let expected_file_path = folder_path.join(format!("{}_expected.json", file_name));

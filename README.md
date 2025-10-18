@@ -56,7 +56,7 @@ Run the full test suite:
 cargo test
 ```
 
-The tests use sample `top` outputs from the `data/` directory and validate against expected JSON outputs like `data/multi_expected.json` and `data/multi_all_expected.json`.
+The tests use sample `top` outputs from the repository root `data/` directory and validate against expected JSON outputs like `data/multi_expected.json` and `data/multi_all_expected.json`. When running tests from the crate, the test code resolves the workspace data directory by traversing to the parent of the crate's manifest directory.
 
 ### Running Tests with Coverage
 
