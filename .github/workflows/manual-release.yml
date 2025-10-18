@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.current_version.outputs.version }}
+      new_version: ${{ steps.new_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "📦 Current version: $CURRENT"
+
+      - name: Calculate new version
+        id: new_version
+        run: |
+          CURRENT="${{ steps.current_version.outputs.version }}"
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT"
+          MAJOR="${VERSION_PARTS[0]}"
+          MINOR="${VERSION_PARTS[1]}"
+          PATCH="${VERSION_PARTS[2]}"
+
+          case "${{ github.event.inputs.version_bump }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "🎯 New version will be: $NEW_VERSION"
+
+  dry-run:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Update Cargo.toml version
+        run: |
+          sed -i "0,/^version = .*/s//version = \"${{ needs.prepare.outputs.new_version }}\"/" Cargo.toml
+          cargo update --workspace
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --all-features --verbose
+
+      - name: Test package build
+        run: cargo package --allow-dirty
+
+      - name: Dry run summary
+        run: |
+          echo "============================================"
+          echo "✅ DRY RUN COMPLETED SUCCESSFULLY"
+          echo "============================================"
+          echo ""
+          echo "📊 Version: ${{ needs.prepare.outputs.current_version }} → ${{ needs.prepare.outputs.new_version }}"
+          echo "📦 Bump type: ${{ github.event.inputs.version_bump }}"
+          echo ""
+          echo "✅ All checks passed!"
+          echo "  ✓ Tests passed"
+          echo "  ✓ Formatting verified"
+          echo "  ✓ Clippy checks passed"
+          echo "  ✓ Package builds successfully"
+          echo ""
+          echo "⏭️  Ready for manual approval"
+          echo "============================================"
+
+  wait-for-approval:
+    runs-on: ubuntu-latest
+    needs: [prepare, dry-run]
+    environment: crates-io-release
+    steps:
+      - name: Approval Gate
+        run: echo "✅ Approval received! Proceeding to release..."
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [prepare, wait-for-approval]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update versions and commit
+        run: |
+          sed -i "0,/^version = .*/s//version = \"${{ needs.prepare.outputs.new_version }}\"/" Cargo.toml
+          cargo update --workspace
+          git add Cargo.toml Cargo.lock
+          git commit -m "chore: bump version to ${{ needs.prepare.outputs.new_version }}"
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ needs.prepare.outputs.new_version }}" -m "Release v${{ needs.prepare.outputs.new_version }}"
+          git push origin master
+          git push origin "v${{ needs.prepare.outputs.new_version }}"
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATES_IO_KEY }}
+        env:
+          CRATES_IO_KEY: ${{ secrets.CRATES_IO_KEY }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare.outputs.new_version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "============================================"
+          echo "🎉 RELEASE COMPLETED"
+          echo "============================================"
+          echo ""
+          echo "📦 Version: v${{ needs.prepare.outputs.new_version }}"
+          echo "🔗 Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ needs.prepare.outputs.new_version }}"
+          echo "============================================"
