@@ -1,6 +1,6 @@
 [package]
 name = "linux-top-parser-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A lightweight Rust library for parsing Linux `top` command output into structured data types and JSON."
 license = "MIT"
