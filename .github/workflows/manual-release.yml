@@ -1,4 +1,4 @@
-name: Release
+name: release-to-crates-io
 
 on:
   workflow_dispatch:
@@ -141,8 +141,7 @@ jobs:
       - name: Update versions and commit
         run: |
           sed -i "0,/^version = .*/s//version = \"${{ needs.prepare.outputs.new_version }}\"/" Cargo.toml
-          cargo update --workspace
-          git add Cargo.toml Cargo.lock
+          git add Cargo.toml
           git commit -m "chore: bump version to ${{ needs.prepare.outputs.new_version }}"
 
       - name: Create and push tag
