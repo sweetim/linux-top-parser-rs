@@ -1,4 +1,4 @@
-name: Rust CI
+name: rust-lint-test-coverage
 on:
   push:
     branches: [ master ]
