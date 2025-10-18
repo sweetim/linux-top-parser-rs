@@ -25,13 +25,22 @@ fn parse_field<'a>(
     )
 }
 
+/// Counts of tasks by state parsed from the "Tasks:" summary line in top output.
+///
+/// This struct mirrors the fields printed by top's "Tasks:" line and is intended for
+/// serialization (serde) using camelCase field names.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskStates {
+    /// Total number of tasks.
     pub total: u32,
+    /// Number of running tasks.
     pub running: u32,
+    /// Number of sleeping tasks.
     pub sleeping: u32,
+    /// Number of stopped tasks.
     pub stopped: u32,
+    /// Number of zombie tasks.
     pub zombie: u32,
 }
 
@@ -58,24 +67,39 @@ fn parse_task_states(input: &str) -> IResult<&str, TaskStates> {
     ))
 }
 
+/// CPU usage metrics for a single CPU line from top.
+///
+/// The `id` field is -1 when the line represents the aggregate "%Cpu(s):" summary,
+/// otherwise it is the CPU number. Field names are serialized to short names that match
+/// top's labels (e.g. "us", "sy", "id") to preserve compatibility with existing JSON
+/// representations.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct CpuStates {
+    /// CPU identifier (-1 for aggregate "%Cpu(s):", otherwise CPU index).
     #[serde(rename = "cpu")]
     pub id: i32,
+    /// Percentage of CPU time spent in user space.
     #[serde(rename = "us")]
     pub user: f32,
+    /// Percentage of CPU time spent in system (kernel) space.
     #[serde(rename = "sy")]
     pub system: f32,
+    /// Percentage of CPU time spent on processes with changed priority (nice).
     #[serde(rename = "ni")]
     pub nice: f32,
+    /// Percentage of CPU time spent idle.
     #[serde(rename = "id")]
     pub idle: f32,
+    /// Percentage of CPU time waiting on I/O.
     #[serde(rename = "wa")]
     pub io_wait: f32,
+    /// Percentage of CPU time servicing hardware interrupts.
     #[serde(rename = "hi")]
     pub hw_irq: f32,
+    /// Percentage of CPU time servicing software interrupts.
     #[serde(rename = "si")]
     pub soft_irq: f32,
+    /// Percentage of CPU time stolen from this VM by the hypervisor.
     #[serde(rename = "st")]
     pub steal: f32,
 }
@@ -121,12 +145,20 @@ fn parse_cpu_states(input: &str) -> IResult<&str, CpuStates> {
     ))
 }
 
+/// Physical memory usage values parsed from top's "MiB Mem" line.
+///
+/// Values are represented in MiB (megabytes) as floating point numbers and serialized
+/// using camelCase field names.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PhysicalMemory {
+    /// Total physical memory (MiB).
     pub total: f32,
+    /// Free physical memory (MiB).
     pub free: f32,
+    /// Used physical memory (MiB).
     pub used: f32,
+    /// Buffers/cache memory (MiB).
     pub buff_or_cache: f32,
 }
 
@@ -151,12 +183,19 @@ fn parse_physical_memory(input: &str) -> IResult<&str, PhysicalMemory> {
     ))
 }
 
+/// Virtual memory (swap) metrics parsed from top's "MiB Swap" line.
+///
+/// All values are in MiB and serialized using camelCase field names.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualMemory {
+    /// Total swap space (MiB).
     pub total: f32,
+    /// Free swap space (MiB).
     pub free: f32,
+    /// Used swap space (MiB).
     pub used: f32,
+    /// Available memory (MiB) reported by top.
     pub available: f32,
 }
 
@@ -181,20 +220,36 @@ fn parse_virtual_memory(input: &str) -> IResult<&str, VirtualMemory> {
     ))
 }
 
+/// A parsed representation of a single top output block.
+///
+/// `TopInfo` contains the parsed summary display (uptime, load, tasks, CPU and memory)
+/// along with the process table rows (`field_values`) as a list of ordered maps where
+/// each map represents one process line keyed by the column title.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TopInfo {
+    /// The parsed summary section that appears above the process table.
     pub summary_display: SummaryDisplay,
+    /// Process table rows: each entry is an IndexMap mapping column title -> cell value.
     pub field_values: Vec<IndexMap<String, String>>,
 }
 
+/// The parsed summary section from top output.
+///
+/// This includes uptime & load average, task state counts, per-CPU statistics,
+/// and memory summaries.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SummaryDisplay {
+    /// Uptime, number of users and load averages.
     pub up_time_and_load_average: UpTimeAndLoadAverage,
+    /// Task state counts (total, running, sleeping...).
     pub task_states: TaskStates,
+    /// Per-CPU usage lines; usually contains one aggregate entry and optionally per-CPU entries.
     pub cpu_states: Vec<CpuStates>,
+    /// Physical memory information.
     pub physical_memory: PhysicalMemory,
+    /// Virtual memory (swap) information.
     pub virtual_memory: VirtualMemory,
 }
 
@@ -287,12 +342,18 @@ fn parse_up_time(input: &str) -> IResult<&str, u32> {
     .parse(input)
 }
 
+/// The three load-average values parsed from top (1, 5 and 15 minute averages).
+///
+/// Field names are serialized with explicit names to be clear in generated JSON.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct LoadAverage {
+    /// Load average over the last 1 minute.
     #[serde(rename = "loadAverageLast_1_min")]
     pub last_1_min: f32,
+    /// Load average over the last 5 minutes.
     #[serde(rename = "loadAverageLast_5_min")]
     pub last_5_min: f32,
+    /// Load average over the last 15 minutes.
     #[serde(rename = "loadAverageLast_15_min")]
     pub last_15_min: f32,
 }
@@ -319,13 +380,25 @@ fn parse_load_average(input: &str) -> IResult<&str, LoadAverage> {
     .parse(input)
 }
 
+/// Uptime, user count and load averages parsed from the top header line.
+///
+/// - `time` is the HH:MM:SS timestamp string from the "top -" header.
+/// - `up_time_s` is the uptime in seconds.
+/// - `total_number_of_users` is the number of logged-in users.
+/// - `load_average` contains the 1/5/15 minute load averages.
+///
+/// The struct flattens load_average into the serialized representation for convenience.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpTimeAndLoadAverage {
+    /// The timestamp at which top was sampled (HH:MM:SS).
     pub time: String,
+    /// The system uptime in seconds.
     #[serde(rename = "upTime_s")]
     pub up_time_s: u32,
+    /// Number of users currently logged in.
     pub total_number_of_users: u32,
+    /// The three load-average values.
     #[serde(flatten)]
     pub load_average: LoadAverage,
 }
@@ -437,6 +510,11 @@ fn parse_top_info_block(input: &str) -> IResult<&str, TopInfo> {
     .parse(input)
 }
 
+/// Parse one or more top output blocks from the given input.
+///
+/// Returns a vector of `TopInfo` blocks parsed from consecutive top summaries in the input.
+/// This function accepts the raw multi-block top output and produces structured data suitable
+/// for serialization or further processing.
 pub fn parse_multiple_top_info_blocks(input: &str) -> IResult<&str, Vec<TopInfo>> {
     many1(terminated(parse_top_info_block, many0(line_ending))).parse(input)
 }
