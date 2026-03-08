@@ -871,7 +871,9 @@ MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   3392.8 avail Mem
     }
 
     #[rstest]
-    fn it_can_parse_summary_display(#[values("single_all_cpu", "multi")] file_name: &str) {
+    fn it_can_parse_summary_display(
+        #[values("single_all_cpu", "multi", "multi_all")] file_name: &str,
+    ) {
         let folder_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
