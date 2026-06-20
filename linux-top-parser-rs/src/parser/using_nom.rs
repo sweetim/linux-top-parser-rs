@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use super::common::{from_days, from_hours, from_minutes};
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::complete::{tag, take_while},
     character::complete::{
         crlf, digit0, digit1, line_ending, none_of, not_line_ending, space0, space1,
     },
@@ -256,11 +256,11 @@ pub struct SummaryDisplay {
 fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
     map(
         (
-            terminated(parse_up_time_and_load_average, line_ending),
-            terminated(parse_task_states, line_ending),
-            many1(terminated(parse_cpu_states, line_ending)),
-            terminated(parse_physical_memory, line_ending),
-            terminated(parse_virtual_memory, line_ending),
+            terminated(parse_up_time_and_load_average, line_end),
+            terminated(parse_task_states, line_end),
+            many1(terminated(parse_cpu_states, line_end)),
+            terminated(parse_physical_memory, line_end),
+            terminated(parse_virtual_memory, line_end),
         ),
         |output| SummaryDisplay {
             up_time_and_load_average: output.0,
@@ -271,6 +271,14 @@ fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
         },
     )
     .parse(input)
+}
+
+/// Consume any trailing horizontal whitespace (spaces/tabs) followed by a line ending.
+///
+/// Real-world `top` output often pads summary lines with trailing spaces, so this is
+/// used instead of a bare `line_ending` to terminate summary line parsers.
+fn line_end(input: &str) -> IResult<&str, &str> {
+    preceded(take_while(|c: char| c == ' ' || c == '\t'), line_ending).parse(input)
 }
 
 #[derive(Debug)]
@@ -547,14 +555,26 @@ fn parse_field_values(header: &[String], body: &[String]) -> Vec<IndexMap<String
             acc
         });
 
+    // The final column (typically COMMAND) has variable width and is not bounded by a
+    // following column, so it extends to the end of each line.
+    let last_index = header_start_end.len().saturating_sub(1);
+
     body.iter()
         .filter(|line| !line.is_empty())
         .map(|line| {
+            let len = line.len();
             header_start_end
                 .iter()
-                .map(|h| {
+                .enumerate()
+                .map(|(index, h)| {
                     let key = h.title.clone();
-                    let value = line[h.start..h.end].trim().to_string();
+                    let start = h.start.min(len);
+                    let end = if index == last_index {
+                        len
+                    } else {
+                        h.end.min(len)
+                    };
+                    let value = line[start..end].trim().to_string();
                     (key, value)
                 })
                 .collect::<IndexMap<_, _>>()
@@ -889,5 +909,26 @@ MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   3392.8 avail Mem
         let actual = parse_multiple_top_info_blocks(input.as_str()).unwrap().1;
         println!("{:#?}", actual);
         assert_eq!(actual, expected);
+    }
+
+    #[rstest]
+    #[case::trailing_spaces("top - 15:29:37 up 15:54,  0 users,  load average: 0.14, 0.07, 0.06
+Tasks:  60 total,   1 running,  39 sleeping,   0 stopped,  20 zombie
+%Cpu(s):  0.4 us,  0.8 sy,  0.0 ni, 98.4 id,  0.0 wa,  0.0 hi,  0.4 si,  0.0 st \t
+MiB Mem :   7947.3 total,    408.6 free,   4257.3 used,   3281.4 buff/cache   \t
+MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   3392.8 avail Mem \t
+
+  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+    1 root      20   0    1804   1192   1104 S   0.0   0.0   0:00.02 /init
+")]
+    fn it_can_parse_summary_display_with_trailing_whitespace(#[case] input: &str) {
+        let (rest, blocks) = parse_multiple_top_info_blocks(input).unwrap();
+
+        assert!(rest.trim().is_empty(), "unexpected trailing input: {rest:?}");
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(
+            blocks[0].summary_display.up_time_and_load_average.time,
+            "15:29:37"
+        );
     }
 }

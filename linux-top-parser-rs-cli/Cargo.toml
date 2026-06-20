@@ -1,0 +1,22 @@
+[package]
+name = "linux-top-parser-rs-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Command-line tool to parse Linux `top` command output (piped via stdin) into structured JSON."
+license = "MIT"
+repository = "https://github.com/tim/linux-top-parser-rs"
+homepage = "https://github.com/tim/linux-top-parser-rs"
+
+[[bin]]
+name = "linux-top-parser-rs-cli"
+path = "src/main.rs"
+
+[dependencies]
+linux-top-parser-rs = { path = "../linux-top-parser-rs", version = "0.2.0" }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+colored_json = "5"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
