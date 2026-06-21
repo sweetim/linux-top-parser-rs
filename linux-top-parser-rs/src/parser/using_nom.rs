@@ -253,7 +253,7 @@ pub struct SummaryDisplay {
     pub virtual_memory: VirtualMemory,
 }
 
-fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
+pub fn parse_summary_display(input: &str) -> IResult<&str, SummaryDisplay> {
     map(
         (
             terminated(parse_up_time_and_load_average, line_end),
